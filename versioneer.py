@@ -309,15 +309,14 @@ https://img.shields.io/travis/com/python-versioneer/python-versioneer.svg
 
 import configparser
 import errno
+import functools
 import json
 import os
 import re
 import subprocess
 import sys
-import functools
 
-
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 have_tomllib = True
 if sys.version_info >= (3, 11):
@@ -1260,7 +1259,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, runner=run_command):
     # if there isn't one, this yields HEX[-dirty] (no NUM)
     describe_out, rc = runner(GITS, [
         "describe", "--tags", "--dirty", "--always", "--long",
-        "--match", "{}[[:digit:]]*".format(tag_prefix)
+        "--match", f"{tag_prefix}[[:digit:]]*"
     ], cwd=root)
     # --long was added in git-1.5.5
     if describe_out is None:
@@ -1396,7 +1395,7 @@ def do_vcs_install(versionfile_source, ipy):
         pass
     if not present:
         with open(".gitattributes", "a+") as fobj:
-            fobj.write("{} export-subst\n".format(versionfile_source))
+            fobj.write(f"{versionfile_source} export-subst\n")
         files.append(".gitattributes")
     run_command(GITS, ["add", "--"] + files)
 
@@ -1451,10 +1450,10 @@ def versions_from_file(filename):
     except OSError:
         raise NotThisMethod("unable to read _version.py")
     mo = re.search(r"version_json = '''\n(.*)'''  # END VERSION_JSON",
-                   contents, re.M | re.S)
+                   contents, re.MULTILINE | re.DOTALL)
     if not mo:
         mo = re.search(r"version_json = '''\r\n(.*)'''  # END VERSION_JSON",
-                       contents, re.M | re.S)
+                       contents, re.MULTILINE | re.DOTALL)
     if not mo:
         raise NotThisMethod("no version_json in _version.py")
     return json.loads(mo.group(1))
@@ -1970,9 +1969,9 @@ def get_cmdclass(cmdclass=None):
             target_versionfile = os.path.join(self.build_lib,
                                               cfg.versionfile_build)
             if not os.path.exists(target_versionfile):
-                print("Warning: {} does not exist, skipping "
+                print(f"Warning: {target_versionfile} does not exist, skipping "
                       "version update. This can happen if you are running build_ext "
-                      "without first running build_py.".format(target_versionfile))
+                      "without first running build_py.")
                 return
             print("UPDATING %s" % target_versionfile)
             write_to_version_file(target_versionfile, versions)
@@ -2044,11 +2043,11 @@ def get_cmdclass(cmdclass=None):
     else:
         from setuptools.command.egg_info import egg_info as _egg_info
 
-    class cmd_egg_info(_egg_info, object):
+    class cmd_egg_info(_egg_info):
         def find_sources(self):
             # egg_info.find_sources builds the manifest list and writes it
             # in one shot
-            super(cmd_egg_info, self).find_sources()
+            super().find_sources()
 
             # Modify the filelist and normalize it
             root = get_root()
@@ -2216,7 +2215,7 @@ def scan_setup_py():
     setters = False
     errors = 0
     with open("setup.py", "r") as f:
-        for line in f.readlines():
+        for line in f:
             if "import versioneer" in line:
                 found.add("import")
             if "versioneer.get_cmdclass()" in line:
@@ -2228,21 +2227,21 @@ def scan_setup_py():
             if "versioneer.versionfile_source" in line:
                 setters = True
     if len(found) != 3:
-        print("")
+        print()
         print("Your setup.py appears to be missing some important items")
         print("(but I might be wrong). Please make sure it has something")
         print("roughly like the following:")
-        print("")
+        print()
         print(" import versioneer")
         print(" setup( version=versioneer.get_version(),")
         print("        cmdclass=versioneer.get_cmdclass(),  ...)")
-        print("")
+        print()
         errors += 1
     if setters:
         print("You should remove lines like 'versioneer.VCS = ' and")
         print("'versioneer.versionfile_source = ' . This configuration")
         print("now lives in setup.cfg, and should be removed from setup.py")
-        print("")
+        print()
         errors += 1
     return errors
 
